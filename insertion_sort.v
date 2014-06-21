@@ -27,7 +27,7 @@ end.
 
 
 (*-----   UREJEN SEZNAM   -----*)
-(*Funkcije za urejen seznam.*)
+(*Funkcija, ki preveri ali je seznam urejen.*)
 Fixpoint urejen_seznam (l : list Z) := 
   match l with
     | nil => True
