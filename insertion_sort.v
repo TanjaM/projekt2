@@ -54,10 +54,25 @@ Notation "l1 ~~ l2" := (permutiran_seznam l1 l2) (at level 70).
 
 
 (*-----    DOKAZ    -----*)
+
+Lemma dokaz_urejen_po_vstavljanju (x : Z)(l : list Z): urejen_seznam l -> urejen_seznam (vstavi_el x l).
+Proof.
+ admit.
+Qed.
+
+
 Theorem dokaz (l : list Z): urejen_seznam(insertion_sort l) /\ l ~~ (insertion_sort l).
 Proof.
-  admit.
+  split.
+  - induction l.
+    simpl; auto.
+    simpl.
+    apply dokaz_urejen_po_vstavljanju.
+    assumption.
+  - admit.
 Qed.
+
+
 
 
 
