@@ -5,17 +5,19 @@ Require Import List.
 Require Import Bool.
 Require Import ZArith.
 (*Notacija za sezname.*)
-Local Open Scope list_scope.
-Local Open Scope Z_scope.
-
+Open Scope list_scope.
+Open Scope Z_scope.
 
 (*-----   INSERTION SORT   -----*)
 (*Vstavi trenutni element na pravo mesto v seznam.*)
-Fixpoint vstavi_el (x : Z)(l : list Z) :=
+Fixpoint vstavi_el (x : Z)(l : list Z) {struct l }: list Z:=
   match l with
   | nil => x::nil
   | y::l' => 
-    if Z.leb x y then x::l' else y::vstavi_el x l'
+    match Z_le_gt_dec x y with
+      | left _ =>  x :: y :: l'
+      | right _ => y :: (vstavi_el x l')
+      end
 end.
 
 (*Funcija za insertion sort.*)
@@ -38,11 +40,14 @@ end.
 
 (*-----   PERMUTIRAN SEZNAM   -----*)
 (*Prešteje kolikokrat se pojavi trenutni element.*)
-Fixpoint pojavi (x : Z) (l : list Z) : nat :=
+Fixpoint pojavi (x : Z) (l : list Z){struct l} : nat :=
   match l with
-    | nil => O
-    | y :: l' =>
-      if x =? y then S (pojavi x l') else pojavi x l'
+  | nil => 0%nat
+  | (z' :: l') =>
+      match Z_eq_dec x z' with
+      | left _ => S (pojavi x l')
+      | right _ => pojavi x l'
+      end
   end.
 
 (*Funkcija, ki preveri ali je seznam permutiran.*)
@@ -55,21 +60,101 @@ Notation "l1 ~~ l2" := (permutiran_seznam l1 l2) (at level 70).
 
 (*-----    DOKAZ    -----*)
 
-Lemma dokaz_urejen_po_vstavljanju (x : Z)(l : list Z): urejen_seznam l -> urejen_seznam (vstavi_el x l).
+(*Pomožne leme za permutacijo*)
+
+(*Prazen seznam*)
+Lemma perm_nil : (permutiran_seznam(nil)(nil)).
 Proof.
- admit.
+ intro z.
+ simpl.
+ auto.
 Qed.
 
-
-Theorem dokaz (l : list Z): urejen_seznam(insertion_sort l) /\ l ~~ (insertion_sort l).
+Lemma perm_list: forall (z:Z) (l l':list Z), permutiran_seznam l l' -> permutiran_seznam (z :: l) (z :: l').
 Proof.
-  split.
-  - induction l.
-    simpl; auto.
-    simpl.
-    apply dokaz_urejen_po_vstavljanju.
-    assumption.
-  - admit.
+ intros z l l' H z'.
+ simpl; case (Z_eq_dec z' z); auto.
+Qed.
+
+Lemma equiv_refl : forall l:list Z, permutiran_seznam l l.
+Proof.
+ unfold permutiran_seznam; trivial.
+Qed.
+
+Lemma equiv_sym : forall l l':list Z, permutiran_seznam l l' -> permutiran_seznam l' l.
+Proof.
+  unfold permutiran_seznam; auto.
+Qed.
+
+Lemma equiv_trans :
+ forall l l' l'':list Z, permutiran_seznam l l' -> permutiran_seznam l' l'' -> permutiran_seznam l l''.
+Proof.
+ intros l l' l'' H H0 z.
+ eapply trans_eq; eauto.
+Qed.
+
+Lemma perm :
+ forall (a b:Z) (l l':list Z), permutiran_seznam l l' -> permutiran_seznam (a :: b :: l) (b :: a :: l').
+Proof.
+ intros a b l l' H z; simpl.
+ case (Z_eq_dec z a); case (Z_eq_dec z b); 
+ simpl; case (H z); auto.
+Qed.
+
+Lemma enaka: forall (l l' : list Z), l=l' -> l~~l'.
+Proof.
+ admit. 
+Qed.
+
+(*Pomožne leme za urejanost seznama.*)
+(*vstavi_el x l mora imeti natako take elemente kot x::l*)
+Lemma vstavi_el_enaka : forall (l:list Z) (x:Z), 
+                  permutiran_seznam(x :: l)(vstavi_el x l).
+Proof.
+ induction l as [|a l0 H]; simpl ; auto.
+ intros x.
+ - apply perm_list.
+   apply perm_nil.
+ - intros x.
+   case (Z_le_gt_dec x a); simpl; auto.
+   + intros.
+     apply perm_list.
+     apply perm_list.
+     apply enaka.
+     auto.
+   + 
+     intro; apply equiv_trans with (a :: x :: l0); auto.
+     * apply perm.
+       apply enaka.
+       auto.
+     * apply perm_list.
+       auto.
+Qed.
+
+(*po vstavljanju je seznam še vedno urejen*)
+Lemma urejen_po_vstavljanju : forall (x : Z)(l : list Z), urejen_seznam l -> urejen_seznam((vstavi_el x l)).
+Proof.
+ (*induction l ;  simpl; auto.
+ intro z.
+ case (Z_le_gt_dec x z); simpl ; auto with zarith.
+ intros z1 z2 ; case (Z_le_gt_dec x z2); simpl; intros.
+ case (Z_le_gt_dec x z1); simpl; auto with zarith.
+ case (Z_le_gt_dec x z1); simpl; auto with zarith.*)
+ admit. (*DOKONČAJ!!!!*)
+Qed.
+
+(*Theorem dokaz (l : list Z): urejen_seznam(insertion_sort l) /\ l ~~ (insertion_sort l).
+*)
+Theorem dokaz : (l : (list Z)){l' : list Z | l~~l' /\ urejen_seznam l'}
+Proof.
+ intro l; induction l.
+ exists (nil Z); split; auto.
+ case Hrecl; intros l’ [H0 H1].
+ exists (insert a l’).
+ split.
+ apply equiv_trans with (a::l’) ; auto.
+ apply vstavi_el_enaka.
+ apply urejen_po_vstavljanju  ; auto.
 Qed.
 
 
