@@ -4,182 +4,153 @@
 Require Import List.
 Require Import Bool.
 Require Import ZArith.
+Require Import Recdef.
 (*Notacija za sezname.*)
 Open Scope list_scope.
 Open Scope Z_scope.
 
 (*-----   INSERTION SORT   -----*)
-(*Vstavi trenutni element na pravo mesto v seznam.*)
-Fixpoint vstavi_el (x : Z)(l : list Z) {struct l }: list Z:=
+
+(*Funkcija, ki vstavi trenutni element na pravo mesto v seznam.*)
+Fixpoint vstavi (x : Z) (l : list Z) : list Z :=
   match l with
-  | nil => x::nil
-  | y::l' => 
-    match Z_le_gt_dec x y with
-      | left _ =>  x :: y :: l'
-      | right _ => y :: (vstavi_el x l')
-      end
-end.
+    | nil => x :: nil
+    | y :: l' => if Z.leb x y
+                 then x :: y :: l'
+                 else y :: vstavi x l'
+  end.
 
 (*Funcija za insertion sort.*)
 Fixpoint insertion_sort (l : list Z) : list Z:= 
   match l with
   | nil => nil
-  | x::l' => vstavi_el x (insertion_sort l')
+  | x::l' => vstavi x (insertion_sort l')
 end.
 
-
 (*-----   UREJEN SEZNAM   -----*)
+
 (*Funkcija, ki preveri ali je seznam urejen.*)
-Fixpoint urejen_seznam (l : list Z) := 
+Fixpoint urejen (l : list Z) :=
   match l with
     | nil => True
     | _ :: nil => True
-    | x :: ((y :: _) as l') => x <= y /\ urejen_seznam l'
-end.
-
-Inductive urejen : list Z -> Prop :=
-  | urejen0 : urejen nil
-  | urejen1 : forall z:Z, urejen (z :: nil)
-  | urejen2 :
-      forall (z1 z2:Z) (l:list Z),
-        z1 <= z2 ->
-        urejen (z2 :: l) -> urejen (z1 :: z2 :: l).
-Hint Resolve urejen0 urejen1 urejen2: sort.
-
-(*-----   PERMUTIRAN SEZNAM   -----*)
-(*Prešteje kolikokrat se pojavi trenutni element.*)
-Fixpoint pojavi (x : Z) (l : list Z){struct l} : nat :=
-  match l with
-  | nil => 0%nat
-  | (z' :: l') =>
-      match Z_eq_dec x z' with
-      | left _ => S (pojavi x l')
-      | right _ => pojavi x l'
-      end
+    | x :: ((y :: _) as l') => x <= y /\ urejen l'
   end.
 
-(*Funkcija, ki preveri ali je seznam permutiran.*)
-Definition permutiran_seznam (l1 l2 : list Z) :=
-  forall x : Z, pojavi x l1 = pojavi x l2.
+Lemma urejen_tail(x : Z)(l:list Z): urejen(x::l)-> urejen l.
+Proof.
+ induction l; firstorder.
+Qed.
 
-(*Notacija za permutacijo*)
-Notation "l1 ~~ l2" := (permutiran_seznam l1 l2) (at level 70).
+(*-----   PERMUTIRAN SEZNAM   -----*)
 
+(*Prešteje kolikokrat se pojavi iskani element.*)
+Fixpoint pojavi (x : Z) (l : list Z) : nat :=
+  match l with
+    | nil => O
+    | y :: l' => if x =? y then S (pojavi x l') else pojavi x l'
+  end.
+
+(*Definicija, ki pove kaj pomeni, da je l' permutacija l.*)
+Definition permutiran_seznam (l l' : list Z) := 
+  forall x : Z, pojavi x l = pojavi x l'.
+
+(*Notacija za permutacijo.*)
+Notation "l ~~ l'" := (permutiran_seznam l l')(at level 70).
 
 (*-----    DOKAZ    -----*)
 
-(*Pomožne leme za permutacijo*)
-
-(*Prazen seznam*)
-Lemma perm_nil : (permutiran_seznam(nil)(nil)).
+(*Pomožna lema za dokaz urejenosti.*)
+Lemma urejen_po_vstavljanju (x : Z) (l : list Z): urejen l -> urejen (vstavi x l).
 Proof.
- intro z.
- simpl.
- auto.
-Qed.
-
-Lemma perm_list: forall (z:Z) (l l':list Z), permutiran_seznam l l' -> permutiran_seznam (z :: l) (z :: l').
-Proof.
- intros z l l' H z'.
- simpl; case (Z_eq_dec z' z); auto.
-Qed.
-
-Lemma equiv_refl : forall l:list Z, permutiran_seznam l l.
-Proof.
- unfold permutiran_seznam; trivial.
-Qed.
-
-Lemma equiv_sym : forall l l':list Z, permutiran_seznam l l' -> permutiran_seznam l' l.
-Proof.
-  unfold permutiran_seznam; auto.
-Qed.
-
-Lemma equiv_trans :
- forall l l' l'':list Z, permutiran_seznam l l' -> permutiran_seznam l' l'' -> permutiran_seznam l l''.
-Proof.
- intros l l' l'' H H0 z.
- eapply trans_eq; eauto.
-Qed.
-
-Lemma perm :
- forall (a b:Z) (l l':list Z), permutiran_seznam l l' -> permutiran_seznam (a :: b :: l) (b :: a :: l').
-Proof.
- intros a b l l' H z; simpl.
- case (Z_eq_dec z a); case (Z_eq_dec z b); 
- simpl; case (H z); auto.
-Qed.
-
-Lemma enaka: forall (l l' : list Z), l=l' -> l~~l'.
-Proof.
- admit. (*POTREBNO DOKAZATI!!!*)
-Qed.
-
-(*Pomožne leme za urejanost seznama.*)
-(*vstavi_el x l mora imeti natako take elemente kot x::l*)
-Lemma vstavi_el_enaka : forall (l:list Z) (x:Z), permutiran_seznam(x :: l)(vstavi_el x l).
-Proof.
- induction l as [|a l0 H]; simpl ; auto.
- intros x.
- - apply perm_list.
-   apply perm_nil.
- - intros x.
-   case (Z_le_gt_dec x a); simpl; auto.
-   + intros.
-     apply perm_list.
-     apply perm_list.
-     apply enaka.
-     auto.
-   + intro; apply equiv_trans with (a :: x :: l0); auto.
-     * apply perm.
-       apply enaka.
+  intro.
+  induction l ; simpl; auto.
+  case_eq (x <=? a)%Z.
+    + intro G.
+      simpl.
+      split.
+      *apply Zle_is_le_bool in G.
        auto.
-     * apply perm_list.
-       auto.
+      *apply H.
+    + intro G.
+      simpl.
+      destruct l.
+      * simpl.
+        split.
+        apply Z.lt_le_incl.
+        apply Z.leb_gt in G.
+        auto.
+        auto.
+      * simpl.
+        apply Z.leb_gt in G.
+        case_eq (x <=? z).
+        - intro A.
+          apply Z.leb_le in A.
+          split; firstorder.
+        - intro B.
+          apply Z.leb_gt in B.
+          split; firstorder.
+          replace (z :: vstavi x l) with (vstavi x(z :: l)).
+          apply H1.
+          simpl.
+          apply Z.leb_gt in B.
+          rewrite B.
+          reflexivity.
 Qed.
 
-(*po vstavljanju je seznam še vedno urejen*)
-Lemma urejen_po_vstavljanju : forall (x : Z)(l : list Z), urejen l -> urejen (vstavi_el x l).
+(*Pomožna lema za dokaz permutacije.*)
+Lemma vstavi_enak (x : Z) (l : list Z): pojavi x (vstavi x l) = S (pojavi x l).
 Proof.
-  intros x l H; elim H; simpl; auto with sort.
-  intro z; case (Z_le_gt_dec x z); simpl; 
-  auto with sort zarith.
-  intros z1 z2; case (Z_le_gt_dec x z2); simpl; intros;
-  case (Z_le_gt_dec x z1); simpl; auto with sort zarith.
-Qed.
-
-Lemma permutiran_po_vstavljanju : forall (x :Z)(l l' : list Z), l ~~ l' -> (vstavi_el x l) ~~ (vstavi_el x l').
-Proof.
- admit.
-Qed.
-
-
-Lemma permutacija: forall(l : list Z), l ~~ (insertion_sort l).
-Proof.
- intro.
  induction l.
- - simpl.
-   apply perm_nil.
- - admit.
-(*Podobno kot za urejen rabiva tudi za permutiran.*) 
-(*apply permutiran_po_vstavljanju.*)  (*POTREBNO DOKAZATI!!!*)
+ - simpl; rewrite Z.eqb_refl; auto.
+ - simpl; case_eq (x <=? a).
+   + intro; simpl; rewrite Z.eqb_refl; auto.
+   + intro; simpl; case (x =? a); auto.  
+Qed.
+
+(*Pomožna lema za dokaz permutacije.*)
+Lemma vstavi_ni_enak (x y : Z) (l : list Z): (x =? y = false) -> pojavi x l = pojavi x (vstavi y l).
+Proof.
+  induction l.
+  - intro; simpl; rewrite H; auto.
+  - intro; simpl.
+    case_eq (x =? a).
+    + intro G.
+      case_eq (y <=? a).
+      * intro G1; simpl; rewrite H, G; auto.
+      * intro G2; simpl; rewrite IHl, G; auto.   
+    + intro G.
+      case_eq (y <=? a).
+      * intro G1; simpl; rewrite H, G; auto.
+      * intro G2; simpl; rewrite IHl, G; auto.
+Qed.
+
+(*Dokazati moramo, da je seznam v insertion_sort permutiran vhodni seznam in da je urejen.*)
+Theorem permutacija (l : list Z): l ~~ insertion_sort l.
+Proof.
+ induction l.
+ - intro; auto.
+ - intro; simpl.
+   case_eq (x =? a).
+   + intro; simpl.
+     rewrite IHl.
+     rewrite Z.eqb_eq in H.
+     rewrite H.
+     rewrite (vstavi_enak a (insertion_sort l)). 
+     auto.
+   + intro.
+     rewrite IHl.
+     rewrite (vstavi_ni_enak x a (insertion_sort l)).
+     * auto.
+     * apply H.
 Qed. 
 
-Theorem dokaz (l : list Z): urejen(insertion_sort l) /\ l ~~ (insertion_sort l).
+Theorem urejenost (l : list Z): urejen(insertion_sort l).
 Proof.
- split.
  - induction l.
-   + simpl; auto with sort.
+   + simpl; auto.
    + simpl.
      apply urejen_po_vstavljanju.
      simpl.
-     auto.  
- - apply permutacija.
+     auto.
 Qed.
-
-
-
-
-
-
-
-
